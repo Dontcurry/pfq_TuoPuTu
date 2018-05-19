@@ -1,0 +1,593 @@
+﻿<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <!--   <meta   http-equiv="Expires"   CONTENT="0">
+    <meta   http-equiv="Cache-Control"   CONTENT="no-cache">
+    <meta   http-equiv="Pragma"   CONTENT="no-cache"> -->
+    <style>
+        /* HTML styles */
+        html {
+            width: 100%;
+        }
+
+        body {
+            width: 100%;
+            margin: 0;
+            padding: 0;
+            display: flex;
+            font-family: sans-serif;
+            font-size: 80%;
+        }
+
+        .controls {
+            width:200px;
+
+            padding: 0 5px;
+        }
+
+            .controls .force {
+                background-color: #ec8080;
+                border-radius: 3px;
+                padding: 5px;
+                margin: 5px 0;
+            }
+            .controls .top {
+                background-color: #1ce79f;
+                border-radius: 3px;
+                padding: 5px;
+                margin: 5px 0;
+            }
+
+                .controls .force p label {
+                    margin-right: .5em;
+                    font-size: 120%;
+                    font-weight: bold;
+                }
+
+                .controls .force p {
+                    margin-top: 0;
+                }
+
+                .controls .force label {
+                    display: inline-block;
+                }
+            .controls .top p label {
+                margin-right: .5em;
+                font-size: 120%;
+                font-weight: bold;
+            }
+
+            .controls .top p {
+                margin-top: 0;
+            }
+
+            .controls .top label {
+                display: inline-block;
+            }
+
+            .controls input[type="checkbox"] {
+                transform: scale(1.2, 1.2);
+            }
+
+            .controls input[type="range"] {
+                margin: 0 5% 0.5em 5%;
+                width: 90%;
+            }
+            /* alpha viewer */
+            .controls .alpha p {
+                margin-bottom: .25em;
+            }
+
+            .controls .alpha .alpha_bar {
+                height: .5em;
+                border: 1px #777 solid;
+                border-radius: 2px;
+                padding: 1px;
+                display: flex;
+            }
+
+                .controls .alpha .alpha_bar #alpha_value {
+                    background-color: #555;
+                    border-radius: 1px;
+                    flex-basis: 100%
+                }
+
+                .controls .alpha .alpha_bar:hover {
+                    border-width: 2px;
+                    margin: -1px;
+                }
+
+                .controls .alpha .alpha_bar:active #alpha_value {
+                    background-color: #222
+                }
+
+        /* SVG styles */
+        svg {
+            flex-basis: 100%;
+            min-width: 200px;
+        }
+       svg text {
+                /*fill: black;*/
+                font: 15px sans-serif;
+                text-anchor: start;
+                cursor: default;
+            }
+
+        .links line {
+            stroke: #999;
+            stroke-opacity: 0.6;
+        }
+
+        .nodes circle {
+            stroke: #fff;
+            stroke-width: 1.5px;
+        }
+    </style>
+</head>
+<body>
+    <table>
+        <tr>
+            <td>
+                <div class="controls">
+
+                    <div class="top">
+                        <p id="nodesNum">节点数：</p>
+                        <p id="edgesNum">边数：</p>
+                        <p id="scale">缩放比例：100%</p>
+                    </div>
+                    <div>
+                        <button id="saveAsPng" style="width:90px;height:35px;background:#ffd800">导出图片</button>
+                        <button id="Help" style="width:90px;height:35px;background:#ffd800">帮助提示</button>
+                    </div>
+
+                    <div class="force alpha">
+                        <p><label>alpha</label> 模拟活动</p>
+                        <div class="alpha_bar" onclick="updateAll();"><div id="alpha_value"></div></div>
+                    </div>
+
+                    <div class="top">
+                        <p>
+                            <label><input type="checkbox" checked onchange="forceProperties.charge.enabled = this.checked; updateAll();"> charge</label>
+                            节点间的力：(+)相互吸引，(-)相互排斥.
+                        </p>
+
+                        <label title="Negative strength repels nodes. Positive strength attracts nodes.">
+                            力的大小(-200,50)：
+                            <output id="charge_StrengthSliderOutput">-30</output>
+                            <input type="range" min="-200" max="50" value="-30" step=".1" oninput="d3.select('#charge_StrengthSliderOutput').text(value); forceProperties.charge.strength=value; updateAll();">
+                        </label>
+
+                        <label title="Minimum distance where force is applied">
+                            最小距离(0,50)：
+                            <output id="charge_distanceMinSliderOutput">1</output>
+                            <input type="range" min="0" max="50" value="1" step=".1" oninput="d3.select('#charge_distanceMinSliderOutput').text(value); forceProperties.charge.distanceMin=value; updateAll();">
+                        </label>
+
+                        <label title="Maximum distance where force is applied">
+                            最大距离(0,2000)：
+                            <output id="charge_distanceMaxSliderOutput">2000</output>
+                            <input type="range" min="0" max="2000" value="2000" step=".1" oninput="d3.select('#charge_distanceMaxSliderOutput').text(value); forceProperties.charge.distanceMax=value; updateAll();">
+                        </label>
+                    </div>
+
+                    <div class="force">
+                        <p>
+                            <label><input type="checkbox" checked onchange="forceProperties.collide.enabled = this.checked; updateAll();"> collide</label>
+                            防止节点重合.
+                        </p>
+                        <label>
+                            力的大小(0,2)：
+                            <output id="collide_StrengthSliderOutput">0.7</output>
+                            <input type="range" min="0" max="2" value=".7" step=".1" oninput="d3.select('#collide_StrengthSliderOutput').text(value); forceProperties.collide.strength=value; updateAll();">
+                        </label>
+
+                        <label title="Size of nodes">
+                            半径(0,100)：
+                            <output id="collide_radiusSliderOutput">5</output>
+                            <input type="range" min="0" max="100" value="5" step="1" oninput="d3.select('#collide_radiusSliderOutput').text(value); forceProperties.collide.radius=value; updateAll();">
+                        </label>
+
+                        <label title="Higher values increase rigidity of the nodes (WARNING: high values are computationally expensive)">
+                            迭代(0,10)：
+                            <output id="collide_iterationsSliderOutput">1</output>
+                            <input type="range" min="1" max="10" value="1" step="1" oninput="d3.select('#collide_iterationsSliderOutput').text(value); forceProperties.collide.iterations=value; updateAll();">
+                        </label>
+                    </div>
+
+                    <div class="top">
+                        <p>
+                            <label><input type="checkbox" onchange="forceProperties.forceX.enabled = this.checked; updateAll();"> forceX</label>
+                            把节点指向x轴.
+                        </p>
+                        <label>
+                            力的大小(0,1)：
+                            <output id="forceX_StrengthSliderOutput">0.1</output>
+                            <input type="range" min="0" max="1" value=".1" step="0.01" oninput="d3.select('#forceX_StrengthSliderOutput').text(value); forceProperties.forceX.strength=value; updateAll();">
+                        </label>
+
+                        <label title="The X location that the force will push the nodes to (NOTE: This demo multiplies by the svg width)">
+                            指向x的位置(0,1):
+                            <output id="forceX_XSliderOutput">0.5</output>
+                            <input type="range" min="0" max="1" value=".5" step="0.01" oninput="d3.select('#forceX_XSliderOutput').text(value); forceProperties.forceX.x=value; updateAll();">
+                        </label>
+                    </div>
+
+                    <div class="force">
+                        <p>
+                            <label><input type="checkbox" onchange="forceProperties.forceY.enabled = this.checked; updateAll();"> forceY</label>
+                            把节点指向x轴.
+                        </p>
+                        <label>
+                            力的大小(0,1)：
+                            <output id="forceY_StrengthSliderOutput">0.1</output>
+                            <input type="range" min="0" max="1" value=".1" step="0.01" oninput="d3.select('#forceY_StrengthSliderOutput').text(value); forceProperties.forceY.strength=value; updateAll();">
+                        </label>
+
+                        <label title="The Y location that the force will push the nodes to (NOTE: This demo multiplies by the svg height)">
+                            指向y的位置(0,1):
+                            <output id="forceY_YSliderOutput">0.5</output>
+                            <input type="range" min="0" max="1" value=".5" step="0.01" oninput="d3.select('#forceY_YSliderOutput').text(value); forceProperties.forceY.y=value; updateAll();">
+                        </label>
+                    </div>
+
+                    <div class="top">
+                        <p>
+                            <label><input type="checkbox" checked onchange="forceProperties.link.enabled = this.checked; updateAll();"> link</label>
+                            设置链路长度.
+                        </p>
+                        <label title="The force will push/pull nodes to make links this long">
+                            distance(0,100):
+                            <output id="link_DistanceSliderOutput">30</output>
+                            <input type="range" min="0" max="100" value="30" step="1" oninput="d3.select('#link_DistanceSliderOutput').text(value); forceProperties.link.distance=value; updateAll();">
+                        </label>
+                        <label title="Higher values increase rigidity of the links (WARNING: high values are computationally expensive)">
+                            iterations(1,10):
+                            <output id="link_IterationsSliderOutput">1</output>
+                            <input type="range" min="1" max="10" value="1" step="1" oninput="d3.select('#link_IterationsSliderOutput').text(value); forceProperties.link.iterations=value; updateAll();">
+                        </label>
+                    </div>
+
+                </div>
+            </td>
+            <td id="svgtd" style="width:100%;height:1058px;vertical-align:top;">
+                <svg width="1301.2" height="1058" id="canvas">
+                    <rect width="1301.2" height="1058" style="fill:#f1e8e8;stroke:black;stroke-width:3;opacity: 0.1;"></rect>
+                </svg>
+            </td>
+        </tr>
+    </table>
+
+    <script src="https://d3js.org/d3.v4.min.js"></script>
+    <script type="text/javascript" src="http://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <script src="FileSaver.min.js"></script>
+    <script src="saveSvgAsPng.js"></script>
+    <script>
+        //定义一个svg画布
+        var svg = d3.select("svg"),
+            width = +svg.node().getBoundingClientRect().width,
+            height = +svg.node().getBoundingClientRect().height;
+        //分别获取svg画布的宽度和高度
+        var color = d3.scaleOrdinal(d3.schemeCategory20);
+        //定义显示节点的颜色函数
+        // d3.scaleOrdinal()是一个用来定义一个序列的函数，它包含的参数d3.schemeCategory20表示序列
+        //函数的值的范围，这里的d3.schemeCategory20指的是由RGB十六进制字符串表示的二十种分类
+        // 颜色的数组。因此，color()函数的值域就是离散的20种颜色
+        var link;
+        //所有边的集合
+        var node;
+        //所有点的集合
+        var fixMode = true;
+        //是否固定拖拽
+        var ignoreDist = true;
+        //
+        var graph;
+        //包含节点和边的数据对象
+        var container;
+        //用于缩放的容器
+        var nodes;
+        //节点
+        var links;
+        //边
+        // 加载json文件
+        d3.json("miserables.json", function (error, _graph) {
+            if (error) throw error;
+            graph = _graph;
+            container = d3.select("svg")
+                        .append("g");
+            nodes = graph.nodes;
+            links = graph.links;
+            //显示节点数和边数
+            d3.select("#nodesNum").text("节点数: " + nodes.length);
+            d3.select("#edgesNum").text("边数: " + links.length);
+
+            initializeDisplay();
+
+            initializeSimulation();
+        });
+
+        //保存坐标
+        function saveCoord() {
+            var text = JSON.stringify(nodes);
+            var file = new File([text], "Coords.json", { type: "application/json;charset=utf-8" });
+            saveAs(file);
+        }
+        //导出图片
+        function exportFigure() {
+            saveSvgAsPng(document.getElementById("canvas"), "svg.png", { backgroundColor: "white" });
+        }
+        //显示帮助
+        function showHelp() {
+            alert("             快捷键:\n"
+                + "h [字母h]: 查看帮助\n"
+                + "f [字母f]: 切换拖拽固定模式\n"
+                + "↓ [方向下键]: 停止迭代\n"
+                + "↑ [方向上键]: 继续迭代\n"
+                + "s [字母s]: 保存坐标\n"
+                + "e [字母e]: 导出图片\n");
+        }
+
+        //////////// FORCE SIMULATION ////////////
+
+        
+        var simulation = d3.forceSimulation();
+        // 创建一个力导向图的模拟器
+        // d3.forceSimulation()函数用来创建一个空的模拟器
+        function initializeSimulation() {
+            Simulation();
+            simulation.nodes(graph.nodes);
+            simulation
+                .nodes(graph.nodes);
+            //
+            
+            //
+            //
+            initializeForces();
+
+            simulation.on("tick", ticked);
+            simulation.force("link")
+                .links(graph.links);
+        }
+
+        // values for all forces
+        forceProperties = {
+            center: {
+                x: 0.5,
+                y: 0.5
+            },
+            charge: {
+                enabled: true,
+                strength: -30,
+                distanceMin: 1,
+                distanceMax: 2000
+            },
+            collide: {
+                enabled: true,
+                strength: .7,
+                iterations: 1,
+                radius: 5
+            },
+            forceX: {
+                enabled: false,
+                strength: .1,
+                x: .5
+            },
+            forceY: {
+                enabled: false,
+                strength: .1,
+                y: .5
+            },
+            link: {
+                enabled: true,
+                distance: 30,
+                iterations: 1
+            }
+        }
+        function Simulation() {
+
+            //缩放
+            function zoomed() {
+
+                container.attr("transform", d3.event.transform);
+                d3.select("#scale").text("缩放比例: " + parseInt(d3.event.transform.k * 100) + "%");
+            }
+            svg.call(d3.zoom()
+                .scaleExtent([1/8, 8])
+                .on("zoom", zoomed));
+            //scaleExtent 用于设置最小和最大的缩放比例
+            //
+            //显示帮助
+            d3.select("#Help").on("click", showHelp);
+            //另存为图片
+            d3.select("#saveAsPng").on("click", exportFigure);
+        }
+
+       //快捷键设置(参考 https://developer.mozilla.org/en-US/docs/Web/API/KeyboardEvent/keyCode)
+        $(document).keyup(function (e) {
+
+           var key = e.which;
+
+           if (key == 72) {
+            //h键查看帮助
+            showHelp();
+        }
+        else if (key == 70) {
+            //f键，使拖拽进入节点固定的模式
+            fixMode = !fixMode;
+        }
+        else if (key == 40) {
+            //下箭头, 暂停迭代
+            simulation.stop();
+        }
+        else if (key == 38) {
+            //上箭头, 继续迭代
+            updateForces();
+        }
+        else if (key == 83) {
+            //s键, 保存坐标
+            saveCoord();
+        }
+        else if (key == 69) {
+            //e键, 导出图片
+            exportFigure();
+        }
+            });
+
+
+        function initializeForces() {
+            // 默认情况下新的模拟没有力量，所有需要指定力的名字分配力并返回该模拟。
+            simulation
+                .force("link", d3.forceLink())
+                                                    // d3.forceLink()函数用来创建一个空的link力数组
+                .force("charge", d3.forceManyBody())
+                                                    //d3.forceManyBody() ：建立一个相互作用力模型。
+                .force("collide", d3.forceCollide())
+                                                    //d3.forceCollide()：碰撞作用力，为节点指定一个radius区域来防止节点重叠，设置碰撞力的强度，范围[0,1], 默认为0.7。
+                                                    //设置迭代次数，默认为1，迭代次数越多最终的布局效果越好，但是计算复杂度更高
+                .force("center", d3.forceCenter())
+                                                   // d3.forceCenter()用指定的x坐标和y坐标创建一个新的居中力。 如果未指定x和y，则默认为⟨0,0⟩。
+                .force("forceX", d3.forceX())
+                .force("forceY", d3.forceY());
+                                                    // 用指定的x坐标和y坐标创建一个居中力。
+            updateForces();
+        }
+
+        // apply new force properties
+        function updateForces() {
+            // get each force by name and update the properties
+            simulation.force("center")
+                .x(width * forceProperties.center.x)
+                .y(height * forceProperties.center.y);
+            simulation.force("charge")
+                .strength(forceProperties.charge.strength * forceProperties.charge.enabled)
+                .distanceMin(forceProperties.charge.distanceMin)
+                .distanceMax(forceProperties.charge.distanceMax);
+            simulation.force("collide")
+                .strength(forceProperties.collide.strength * forceProperties.collide.enabled)
+                .radius(forceProperties.collide.radius)
+                .iterations(forceProperties.collide.iterations);
+            simulation.force("forceX")
+                .strength(forceProperties.forceX.strength * forceProperties.forceX.enabled)
+                .x(width * forceProperties.forceX.x);
+            simulation.force("forceY")
+                .strength(forceProperties.forceY.strength * forceProperties.forceY.enabled)
+                .y(height * forceProperties.forceY.y);
+            simulation.force("link")
+                .id(function (d) { return d.id; })
+                .distance(forceProperties.link.distance)
+                .iterations(forceProperties.link.iterations)
+                .links(forceProperties.link.enabled ? graph.links : []);
+
+            // updates ignored until this is run
+            // restarts the simulation (important if simulation has already slowed down)
+            simulation.alpha(1).restart();
+        }
+
+
+
+        //////////// DISPLAY ////////////
+
+        // generate the svg objects and force simulation
+        function initializeDisplay() {
+            // 节点之间的连线的显示
+            link = container.append("g")
+                .attr("class", "links")
+                .selectAll("line")
+                .data(graph.links)
+                .enter().append("line")
+                                            //节点之间的连线的粗细
+                .attr("stroke-width", function (d) { return Math.sqrt(d.value); });
+
+            // 节点的显示
+            node = container.append("g")
+                .attr("class", "nodes")
+                .selectAll("circle")
+                .data(graph.nodes)
+                .enter().append("circle")
+                                        //设置节点半径
+                .attr("r", 5)
+                                        // 设置节点的填充色，通过节点的group属性来计算节点的填充颜色
+                .attr("fill", function (d) { return color(d.group); })
+                                            //调用drag()函数，绑定拖拽函数的三个钩子，即拖拽开始、拖拽中、拖拽结束
+                .call(d3.drag()
+                    .on("start", dragstarted)
+                    .on("drag", dragged)
+                    .on("end", dragended));
+
+            // node tooltip
+            node.append("title")
+                .text(function (d) { return d.id; });
+
+            // visualize the graph
+            updateDisplay();
+        }
+
+        // update the display based on the forces (but not positions)
+        function updateDisplay() {
+            node
+                .attr("r", forceProperties.collide.radius)
+                .attr("stroke", forceProperties.charge.strength > 0 ? "blue" : "red")
+                .attr("stroke-width", forceProperties.charge.enabled == false ? 0 : Math.abs(forceProperties.charge.strength) / 15);
+
+            //link
+              //.attr("stroke-width", forceProperties.link.enabled ? 1 : .5)
+              //.attr("opacity", forceProperties.link.enabled ? 1 : 0);
+        }
+
+        // update the display positions after each simulation tick
+        function ticked() {
+            link
+                .attr("x1", function (d) { return d.source.x; })
+                .attr("y1", function (d) { return d.source.y; })
+                .attr("x2", function (d) { return d.target.x; })
+                .attr("y2", function (d) { return d.target.y; });
+
+            node
+                .attr("cx", function (d) { return d.x; })
+                .attr("cy", function (d) { return d.y; });
+            d3.select('#alpha_value').style('flex-basis', (simulation.alpha() * 100) + '%');
+        }
+
+
+        
+
+        //////////// UI EVENTS ////////////
+        //动画冷却系数是alpha，运动过程中不断减小，减至0.005时会停止动画。
+        function dragstarted(d) {
+            if (!d3.event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(d) {
+            d.fx = d3.event.x;
+            d.fy = d3.event.y;
+            //d.x是当前位置，d.fx是固定位置
+        }
+
+        function dragended(d) {
+            if (!d3.event.active) simulation.alphaTarget(0.0001);
+            if (fixMode) {
+                //是否固定拖拽
+                d.fx = null;
+                d.fy = null;
+            }
+            
+        }
+
+        // update size-related forces
+        d3.select(window).on("resize", function () {
+            width = +svg.node().getBoundingClientRect().width;
+            height = +svg.node().getBoundingClientRect().height;
+            updateForces();
+        });
+
+        // convenience function to update everything (run after UI input)
+        function updateAll() {
+            updateForces();
+            updateDisplay();
+        }
+    </script>
+</body>
+</html>
+
